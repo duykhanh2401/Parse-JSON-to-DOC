@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+	</head>
+
+	<body>
+		<div id="app">
+			<button @click="HandlerData">Xử lý</button>
+			<json-editor-vue v-model="value" mode="text" class="editor"></json-editor-vue>
+		</div>
+		<script src="https://unpkg.com/docx@7.1.0/build/index.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/1.3.8/FileSaver.js"></script>
+
+		<script type="importmap">
+			{
+				"imports": {
+					"vue": "https://cdn.jsdelivr.net/npm/vue/dist/vue.esm-browser.prod.js",
+					"vue-demi": "https://cdn.jsdelivr.net/npm/vue-demi/lib/v3/index.mjs",
+					"vanilla-jsoneditor": "https://cdn.jsdelivr.net/npm/vanilla-jsoneditor",
+					"json-editor-vue": "https://cdn.jsdelivr.net/npm/json-editor-vue@0.12/dist/json-editor-vue.mjs"
+				}
+			}
+		</script>
+		<script type="module">
+			import { createApp, ref } from 'vue';
+			import JsonEditorVue from 'json-editor-vue';
+
+			createApp({
+				setup() {
+					function getType(value) {
+						if (Array.isArray(value)) {
+							return 'array';
+						}
+
+						if (value == null) {
+							return '';
+						}
+
+						return typeof value;
+					}
+
+					function detectData(data, subIndex) {
+						const arrayData = [];
+						let index = 0;
+						if (typeof data == 'object' && data) {
+							console.log('------------------------');
+
+							for (const [key, value] of Object.entries(data)) {
+								index++;
+								const stt = subIndex
+									? subIndex + '.' + index
+									: String(index);
+								arrayData.push({
+									stt: stt,
+									name: key,
+									type: getType(value),
+								});
+								console.log(key, stt, index, typeof value);
+
+								if (Array.isArray(value) && value.length) {
+									arrayData.push(...detectData(value[0], stt));
+								} else if (typeof value == 'object') {
+									arrayData.push(...detectData(value, stt));
+								}
+							}
+						}
+
+						return arrayData;
+					}
+
+					function HandlerData() {
+						const res = detectData(JSON.parse(value.value));
+
+						const rows = [];
+						console.log(res);
+
+						for (const ele of res) {
+							console.log(ele);
+							rows.push(
+								new docx.TableRow({
+									children: [
+										new docx.TableCell({
+											children: [new docx.Paragraph(ele.stt)],
+										}),
+										new docx.TableCell({
+											children: [new docx.Paragraph(ele.name)],
+										}),
+										new docx.TableCell({
+											children: [new docx.Paragraph(ele.type)],
+										}),
+										new docx.TableCell({ children: [] }),
+									],
+								}),
+							);
+						}
+
+						const table = new docx.Table({
+							rows,
+						});
+
+						const doc = new docx.Document({
+							sections: [
+								{
+									children: [table],
+								},
+							],
+						});
+
+						docx.Packer.toBlob(doc).then((blob) => {
+							console.log(blob);
+							saveAs(blob, 'result.docx');
+							console.log('Document created successfully');
+						});
+					}
+
+					const value = ref({});
+
+					return { value, HandlerData };
+				},
+			})
+				.use(JsonEditorVue)
+				.mount('#app');
+		</script>
+	</body>
+	<style>
+		#app,
+		body,
+		html {
+			height: 90%;
+		}
+
+		.editor {
+			height: 100%;
+		}
+
+		button {
+			cursor: pointer;
+			margin: 1rem auto;
+			padding-left: 1.5rem;
+			padding-right: 1.5rem;
+			padding-top: 1rem;
+			padding-bottom: 1rem;
+			font-size: 0.75rem;
+			line-height: 1rem;
+			justify-content: center;
+			display: flex;
+			position: relative;
+			white-space: normal;
+			border-radius: 0.25rem;
+			font-weight: 600;
+			text-transform: capitalize;
+			transition-property: all;
+			transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+			transition-duration: 150ms;
+			--tw-bg-opacity: 1;
+			background-color: rgb(80 199 147 / var(--tw-bg-opacity));
+			--tw-text-opacity: 1;
+			color: rgb(255 255 255 / var(--tw-text-opacity));
+			--tw-ring-opacity: 1;
+			--tw-ring-color: rgb(80 199 147 / var(--tw-ring-opacity));
+			border: 0;
+		}
+	</style>
+</html>
